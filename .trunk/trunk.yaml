@@ -8,6 +8,8 @@ plugins:
       uri: https://github.com/trunk-io/plugins
 lint:
   enabled:
+    - black@23.3.0
+    - taplo@0.7.0
     - actionlint@1.6.24
     - isort@5.12.0
     - ruff@0.0.264

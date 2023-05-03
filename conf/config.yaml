@@ -1,0 +1,6 @@
+parser:
+  src:
+    - "./docs/"
+  datereadformat: "%d.%m.%Y"
+  datewriteformat: "%Y%m%d"
+  targetpath: "./"
