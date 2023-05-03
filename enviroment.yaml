@@ -1,0 +1,9 @@
+name: pdfparse
+channels:
+  - conda-forge
+  - defaults
+  - pip
+  - pytorch
+dependencies:
+  - python=3.11
+  - pypdf
