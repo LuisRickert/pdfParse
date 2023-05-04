@@ -6,6 +6,22 @@ from pathlib import Path
 import hydra
 import pypdf
 from omegaconf import DictConfig
+from tqdm import tqdm
+
+
+def get_files(file_list: list, src: Path) -> None:
+    if src.is_dir():
+        for file in src.iterdir():
+            if file.is_file() and file.name.endswith(".pdf"):
+                file_list.append(file)
+            elif file.is_dir():
+                get_files(file_list, file)
+            elif file.is_file():
+                pass
+            else:
+                raise ValueError("Something went wrong getting all files")
+    elif src.is_file() and src.name.endswith(".pdf"):
+        file_list.append(src)
 
 
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
@@ -14,28 +30,28 @@ def start(cfg: DictConfig):
     write_format = cfg.parser.datewriteformat
     target_path = Path(cfg.parser.targetpath)
     extracted_data = []
+    to_extract = []
+    for src in cfg.parser.src:
+        get_files(to_extract, Path(src))
 
-    for filePath in [Path(file) for file in cfg.parser.src]:
-        if filePath.is_dir():
-            for file in [
-                x for x in filePath.iterdir() if x.name.endswith(".pdf") and x.is_file()
-            ]:
-                extracted_data.append(extract_data(file, read_format))
+    extracted_data = [
+        extract_data(file, read_format)
+        for file in tqdm(
+            to_extract,
+            desc=f"working on {len(to_extract)} files ...",
+            total=len(to_extract),
+        )
+    ]
 
-        elif filePath.is_file():
-            extracted_data.append(extract_data(filePath, read_format))
+    for file in extracted_data:
+        if (
+            file.get("vorgang") is None
+            or file.get("date") is None
+            or file.get("ISIN") is None
+        ):
+            print("Something went wrong with %s" % file.get("name"))
         else:
-            raise ValueError("Something went wrong ")
-
-        for file in extracted_data:
-            if (
-                file.get("vorgang") is None
-                or file.get("date") is None
-                or file.get("ISIN") is None
-            ):
-                print("Something went wrong with %s" % file.get("name"))
-            else:
-                write_file(file, target_path, write_format)
+            write_file(file, target_path, write_format)
 
 
 def extract_data(file: Path, readformat: str) -> dict:
