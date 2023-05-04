@@ -1,9 +1,7 @@
-import os
 import re
 import shutil
 from datetime import datetime as dt
 from pathlib import Path
-from typing import List
 
 import hydra
 import pypdf
