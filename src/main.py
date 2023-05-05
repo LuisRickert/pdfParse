@@ -92,6 +92,8 @@ def extract_data(file: Path, readformat: str) -> dict:
 
         elif "ISIN: " in line:
             file_data["ISIN"] = line.split(": ")[1]
+        elif "Scalable Capital GmbH" in line:
+            file_data["broker"] = "ScalableCapital"
         else:
             pass
 
@@ -101,6 +103,8 @@ def extract_data(file: Path, readformat: str) -> dict:
 def write_file(file_data: dict, targetPath: Path, write_format) -> None:
     new_name = (
         dt.strftime(file_data["date"], write_format)
+        + "_"
+        + file_data["broker"]
         + "_"
         + file_data["ISIN"]
         + "_"
