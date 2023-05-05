@@ -28,9 +28,13 @@ def get_files(file_list: list, src: Path) -> None:
 def start(cfg: DictConfig):
     read_format = cfg.parser.datereadformat
     write_format = cfg.parser.datewriteformat
+
     target_path = Path(cfg.parser.targetpath)
+    target_path.mkdir(parents=True, exist_ok=True)
+
     extracted_data = []
     to_extract = []
+
     for src in cfg.parser.src:
         get_files(to_extract, Path(src))
 
