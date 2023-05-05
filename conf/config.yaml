@@ -4,3 +4,5 @@ parser:
   datereadformat: "%d.%m.%Y"
   datewriteformat: "%Y%m%d"
   targetpath: ./
+  error_log: ./error.log
+  log_level: error
