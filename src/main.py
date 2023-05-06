@@ -51,7 +51,8 @@ def start(cfg: DictConfig):
 
     for src in cfg.parser.src:
         src = Path(src)
-        src.mkdir(parents=True, exist_ok=True)
+        if src.is_dir():
+            src.mkdir(parents=True, exist_ok=True)
         get_files(to_extract, src)
 
     extracted_data = [
@@ -69,6 +70,7 @@ def start(cfg: DictConfig):
             or file.get("date") is None
             or file.get("ISIN") is None
             or file.get("broker") is None
+            or file.get("vnum") is None
         ):
             logger.warning(
                 "error on vorgang=%s,date=%s,ISIN=%s,broker=%s, file=%s"
@@ -82,7 +84,7 @@ def start(cfg: DictConfig):
             )
 
         else:
-            write_file(file, target_path, write_format)
+            write_file(file, target_path, write_format, overwrite=cfg.parser.overwrite)
 
 
 def extract_data(file: Path, readformat: str) -> dict:
@@ -102,10 +104,12 @@ def extract_data(file: Path, readformat: str) -> dict:
                     raise ValueError(
                         "found multiple 'vorgang' candidates in %s" % file_data["name"]
                     )
-
+            elif "Vorgangs-Nr" in line:
+                if file_data.get("vnum") is None:
+                    file_data["vnum"] = line.split(".:")[1].strip()
             elif "Ausschüttung" in line:
                 if file_data.get("vorgang") is None:
-                    file_data["vorgang"] = line
+                    file_data["vorgang"] = line.strip()
                 else:
                     if not file_data["vorgang"] == line:
                         raise ValueError(
@@ -116,7 +120,7 @@ def extract_data(file: Path, readformat: str) -> dict:
                         )
             elif "Depoteinlieferung" in line:
                 if file_data.get("vorgang") is None:
-                    file_data["vorgang"] = line
+                    file_data["vorgang"] = line.strip()
                 else:
                     if not file_data["vorgang"] == line:
                         raise ValueError(
@@ -133,18 +137,17 @@ def extract_data(file: Path, readformat: str) -> dict:
                 date_found = True
 
             elif "ISIN: " in line:
-                file_data["ISIN"] = line.split(": ")[1]
-            elif "Scalable Capital GmbH" in line:
+                file_data["ISIN"] = line.split(": ")[1].strip()
+            elif "Scalable Capital GmbH" in line or "Scalable Capital":
                 file_data["broker"] = "ScalableCapital"
             else:
                 pass
         except ValueError as e:
             logger.warning(e)
-
     return file_data
 
 
-def write_file(file_data: dict, targetPath: Path, write_format) -> None:
+def create_name(file_data: dict, write_format: str, num: int = 0) -> str:
     new_name = (
         dt.strftime(file_data["date"], write_format)
         + "_"
@@ -152,10 +155,48 @@ def write_file(file_data: dict, targetPath: Path, write_format) -> None:
         + "_"
         + file_data["ISIN"]
         + "_"
+        + file_data["vnum"]
+        + "_"
         + file_data["vorgang"]
-        + ".pdf"
     )
-    shutil.copy2(file_data["name"], Path(targetPath / new_name))
+
+    if num > 0:
+        new_name = new_name + ("_%s" % str(num))
+
+    return new_name + ".pdf"
+
+
+def write_file(
+    file_data: dict, targetPath: Path, write_format, overwrite: bool = True
+) -> None:
+    file_count = 0
+    # generate filename an path
+    filePath = Path(
+        targetPath
+        / create_name(file_data=file_data, write_format=write_format, num=file_count)
+    )
+
+    # if target path exists rename increment file counter +1
+    if filePath.exists() and not overwrite:
+        # set while condition
+        file_count_flag = True
+        while file_count_flag:
+            # break condition max tries
+            if file_count > 50:
+                raise ValueError(
+                    "Something went wrong with file creation. reached max attemps limit file: %s generated name : %s"
+                    % (file_data["name"], filePath)
+                )
+            file_count += 1
+            # create new file
+            filePath = Path(
+                targetPath / create_name(file_data, write_format, file_count)
+            )
+
+            # reevalutate while condition
+            file_count_flag = filePath.exists()
+
+    shutil.copy2(file_data["name"], filePath)
 
 
 if __name__ == "__main__":
